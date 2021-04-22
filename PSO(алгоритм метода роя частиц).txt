@@ -1,0 +1,195 @@
+#include <bits/stdc++.h>
+#include <SFML/Graphics.hpp>
+#define endl '\n'
+
+using namespace std;
+using namespace sf;
+
+random_device device;
+mt19937 rnd(device());
+uniform_int_distribution<int> distribution(1, 5);
+
+const int M = 20; // высота игрового поля
+const int N = 20; // ширина игрового поля
+const int n, it = 0; // кол-во роботов и счётчик иттераций
+int act = 1;
+
+bool gridBool[M][N] = { false };
+int field[M][N] = { 0 }, gridInt[M][N] = {15, 12, 7, 15, 6,
+                                          14, 12, 1, 17, 6,
+                                          9, 8, 3, 11, 4,
+                                          6, 12, 4, 3, 20,
+                                          13, 20, 17, 16, 5};
+
+struct point{
+    int x, y;
+};
+struct chest_inf{
+    int inf;
+    point pos;
+};
+int sgn(int x){
+    if(x < 0)
+        return -1;
+    if(x > 0)
+        return 1;
+    return 0;
+}
+
+int main() {
+    Clock clock;
+    float timer = 0, delay = 0.3; /// Установка таймера
+
+    vector<point> layDrone; // положение каждого робота
+    for(int i = 0; i < M; i += 4){
+        for(int j = 0; j < N; j += 4)
+            layDrone.push_back({i, j});
+    }  /// Установка роботов
+
+    for(int i = 0; i < M; i++){
+        for(int j = 0; j < N; j++)
+            gridInt[i][j] = distribution(rnd), cout << gridInt[i][j] << " " ;
+        cout << endl;
+    } /// Заполнение скрытого массива
+
+    n = layDrone.size();
+    point vs;
+    point v[n]; // перемещение
+    vector<point> vi[n]; // память о пред. перемещении каждого робота
+    chest_inf vc[n]; /* память о лучшем положении каждого робота*/ /// Память
+
+    RenderWindow window(VideoMode(400, 400), "Model");
+    //window.setSize(Vector2u(800, 800));
+
+    Texture t;
+    t.loadFromFile("C:\\images\\title.png");
+
+    Sprite Nan(t), done(t), drone(t), analise(t), atractor(t), prev_atr(t);
+    Nan.setTextureRect(IntRect(0, 0, 20, 20));
+    drone.setTextureRect(IntRect (20, 0, 20, 20));
+    drone.setColor(Color(255, 255, 255, 120));
+    analise.setTextureRect(IntRect(40, 0, 20, 20));
+    analise.setColor(Color(255, 255, 255, 120));
+    done.setTextureRect(IntRect(60, 0, 20, 20));
+    atractor.setTextureRect(IntRect(80, 0, 20, 20));
+    prev_atr.setTextureRect(IntRect(100, 0, 20, 20));  /// Загрузка текстур и установка спрайтов
+
+    while (window.isOpen()){
+        Event event;
+
+        float time = clock.getElapsedTime().asSeconds();
+        clock.restart();
+        timer += time;
+        act = act%3;
+
+        while (window.pollEvent(event)){
+            if (event.type == Event::Closed)
+                window.close();
+        }
+        window.clear(Color::White);
+
+        /// Отрисовка поля
+        for (int i = 0; i < M; i++){
+            for(int j = 0; j < N; j++) {
+                if (field[i][j] == 0)
+                    Nan.setPosition(i * 20, j * 20), window.draw(Nan);
+                if (field[i][j] == 1)
+                    done.setPosition(i * 20, j * 20), window.draw(done);
+                if (field[i][j] == 2)
+                    prev_atr.setPosition(i * 20, j * 20), window.draw(prev_atr);
+            }
+        }
+        if(it != 0 and act != 2)
+            atractor.setPosition(vs.x * 20, vs.y * 20), window.draw(atractor);
+
+        if(timer > delay) {
+            if (act == 0) {
+                cout << "Motion...";
+                for (int i = 0; i < n; i++) {
+                    int x = max(0, min(layDrone[i].x + v[i].x, M - 1));
+                    int y = max(0, min(layDrone[i].y + v[i].y, N - 1));
+                    if (gridBool[x][y]) {
+                        x = max(0, min(layDrone[i].x, M - 1)), y = max(0, min(layDrone[i].y + v[i].y, N - 1));
+                    }
+                    if (gridBool[x][y]) {
+                        x = max(0, min(layDrone[i].x + v[i].x, M - 1)), y = max(0, min(layDrone[i].y, N - 1));
+                    }
+                    if (gridBool[x][y]) {
+                        x = max(0, min(layDrone[i].x, M - 1)), y = max(0, min(layDrone[i].y, N - 1));
+                    }
+
+                    if(field[layDrone[i].x][layDrone[i].y] == 0)
+                        field[layDrone[i].x][layDrone[i].y] = 1;
+                    swap(gridBool[layDrone[i].x][layDrone[i].y], gridBool[x][y]);
+                    layDrone[i] = {x, y};
+                }
+                cout << "Done" << endl;
+                cout << endl;
+            } // передвижение
+            if (act == 2) {
+                cout << "Iteration: " << it << endl;
+
+                cout << "Initialising and filling vectors W, F... ";
+                vector<point> W;
+                for (point i: layDrone) W.push_back(i);
+                vector<int> F;
+                for (point i: W) F.push_back(gridInt[i.x][i.y]);
+                cout << "Done" << endl;
+
+                cout << "Attract searching... ";
+                int mini = 1e9;
+                for (int i = 0; i < n; i++) {
+                    if (mini > F[i])
+                        mini = F[i], vs = W[i];
+                    if (it != 0) {
+                        if (vc[i].inf > F[i])
+                            vc[i].inf = F[i], vc[i].pos = W[i];
+                    } else {
+                        vc[i] = {F[i], W[i]};
+                    }
+                } // поиск аттрактора
+                cout << "Done " << gridInt[vs.x][vs.y] << endl;
+                field[vs.x][vs.y] = 2;
+
+                cout << "New robot positions... ";
+                for (int i = 0; i < n; i++) {
+                    point vi_, vc_, vs_;
+
+                    if (it == 0) vi_ = {0, 0};
+                    else vi_ = vi[i][it - 1];
+                    vc_ = {abs(vc[i].pos.x - layDrone[i].x + 1), abs(vc[i].pos.y - layDrone[i].y + 1)};
+                    vs_ = {vs.x - layDrone[i].x, vs.y - layDrone[i].y};
+
+                    int x = sgn(vi_.x) + sgn(vc_.x) + sgn(vs_.x);
+                    int y = sgn(vi_.y) + sgn(vc_.y) + sgn(vs_.y);
+
+                    v[i] = {sgn(x), sgn(y)};
+                    vi[i].push_back({x, y});
+                } // новое положение роботов; запись перемещения роботов
+                cout << "Done" << endl;
+                cout << "Analise is done" << endl;
+
+                it++;
+                cout << endl;
+            } // анализ
+            timer = 0;
+            act++;
+        }
+        else {
+            if (act == 1) {
+                for(point i: layDrone) {
+                    drone.setPosition(i.x * 20, i.y * 20), window.draw(drone);
+                    gridBool[i.x][i.y] = true;
+                }
+            }
+            else {
+                for (point i: layDrone)
+                    analise.setPosition(i.x * 20, i.y * 20), window.draw(analise);
+            }
+        }
+
+       window.display();
+    }
+
+    return 0;
+}

@@ -1,0 +1,185 @@
+#include <bits/stdc++.h>
+#include <SFML/Graphics.hpp>
+#define endl '\n'
+
+using namespace std;
+using namespace sf;
+
+random_device device;
+mt19937 rnd(device());
+uniform_int_distribution<int> distribution(1, 10);
+
+const int M = 20; // высота игрового поля
+const int N = 20; // ширина игрового поля
+const int n = 5;
+int act = 1, it = 0; // кол-во роботов и счётчик иттераций
+
+double soil[N*M][N*M] = { 1000.0 };
+double vc[n] = { 200.0 };
+int field[M][N] = { 0 }, gridInt[M][N] = {15, 12, 7, 15, 6,
+                                          14, 12, 1, 17, 6,
+                                          9, 8, 3, 11, 4,
+                                          6, 12, 4, 3, 20,
+                                          13, 20, 17, 16, 5};
+
+struct point{
+    int x, y;
+};
+struct drop{
+    double grd;   // ground
+    point pos; // position
+};
+int sgn(int x){
+    if(x < 0)
+        return -1;
+    if(x > 0)
+        return 1;
+    return 0;
+}
+double sqr(double x){
+    return x*x;
+}
+
+int main() {
+    Clock clock;
+    float timer = 0, delay = 0.3; /// Установка таймера
+
+    point start = {0, 0};
+    point finish = {M-1, N-1};
+
+    double T[n] = {0.0};
+    field[start.x][start.y] = 50;
+    drop layDrone[n]; /// Положение дронов
+    for(drop& i: layDrone)
+        i.grd = 0.0, i.pos = {start.x, start.y};
+    for(int i = 0; i < M; i++){
+        for(int j = 0; j < N; j++)
+            gridInt[i][j] = distribution(rnd), cout << gridInt[i][j] << " " ;
+        cout << endl;
+    } /// Заполнение скрытого массива
+
+    RenderWindow window(VideoMode(400, 400), "Model");
+    //window.setSize(Vector2u(800, 800));
+
+    Texture t;
+    t.loadFromFile("C:\\images\\title.png");
+
+    Sprite Nan(t), used(t), drone(t);
+    Nan.setTextureRect(IntRect(0, 0, 20, 20));
+    used.setTextureRect(IntRect (100, 0, 20, 20)); /// Загрузка текстур и установка спрайтов
+    drone.setTextureRect(IntRect(20, 0, 20, 20));
+
+    while (window.isOpen()){
+        Event event;
+
+        int cnt;
+        float time = clock.getElapsedTime().asSeconds();
+        clock.restart();
+        timer += time;
+
+        while (window.pollEvent(event)){
+            if (event.type == Event::Closed)
+                window.close();
+        }
+        window.clear(Color::White);
+
+        /// Отрисовка поля
+        for (int i = 0; i < M; i++){
+            for(int j = 0; j < N; j++) {
+                Nan.setPosition(i * 20, j * 20), window.draw(Nan);
+                used.setColor(Color(255, 255, 255, field[i][j]));
+                used.setPosition(i * 20, j * 20), window.draw(used);
+            }
+        }
+
+
+        if(timer > delay) {
+                if (cnt == n) {
+                    cnt = 0;
+                    swap(start, finish);
+                    double mini = 1000000.0;
+                    for(double i: T)
+                        mini = min(mini, i);
+                    cout << "T_min: " << mini << endl;
+                }
+
+                cout << "Iteration: " << it << endl;
+                if(it == 56)
+                    cout << "" << endl;
+
+                for(int bd = 0; bd < n; bd++){
+                    drop iwd = layDrone[bd];
+                    if(iwd.pos.x == finish.x and iwd.pos.y == finish.y)
+                        continue;
+
+                    drop city; city.grd = 1000000.0;
+                    int x = sgn(finish.x - iwd.pos.x);
+                    int y = sgn(finish.y - iwd.pos.y);
+
+                    if(abs(iwd.pos.x - finish.x) <= 1 and abs(iwd.pos.y - finish.y) <= 1){
+                        city.grd = field[finish.x][finish.y];
+                        city.pos = finish;
+                    }
+                    else if(iwd.pos.x != finish.x and iwd.pos.y != finish.y){
+                        int new_x = max(0, min(M-1, iwd.pos.x+x));
+                        int new_y = max(0, min(N-1, iwd.pos.y+y));
+                        if(gridInt[new_x][new_y]*1.0 < city.grd)
+                            city.grd = gridInt[new_x][new_y], city.pos = {new_x, new_y};
+                        new_x = max(0, min(M-1, iwd.pos.x));
+                        new_y = max(0, min(N-1, iwd.pos.y+y));
+                        if(gridInt[new_x][new_y]*1.0 < city.grd)
+                            city.grd = gridInt[new_x][new_y], city.pos = {new_x, new_y};
+                        new_x = max(0, min(M-1, iwd.pos.x+x));
+                        new_y = max(0, min(N-1, iwd.pos.y));
+                        if(gridInt[new_x][new_y]*1.0 < city.grd)
+                            city.grd = gridInt[new_x][new_y], city.pos = {new_x, new_y};
+                    }
+                    else {
+                        if (iwd.pos.y == finish.y) {
+                            int i = max(0, min(M-1, iwd.pos.x+x));
+                            for(int j = max(0, min(N-1, iwd.pos.y-1)); j <= max(0, min(N-1, iwd.pos.y+1)); j++){
+                                if(gridInt[i][j]*1.0 < city.grd)
+                                    city.grd = gridInt[i][j], city.pos = {i, j};
+                            }
+                        } else {
+                            int j = max(0, min(N-1, iwd.pos.y+y));
+                            for(int i = max(0, min(M-1, iwd.pos.x-1)); i <= max(0, min(M-1, iwd.pos.x+1)); i++){
+                                if(gridInt[i][j]*1.0 < city.grd)
+                                    city.grd = gridInt[i][j], city.pos = {i, j};
+                            }
+                        }
+                    }
+
+                    int from = iwd.pos.x * M + iwd.pos.y;
+                    int to = city.pos.x * M + city.pos.y;
+                    vc[bd] += 1/(0.1 + sqr(soil[from][to]));
+                    double d_soil = 1/(0.1 + sqr(1/vc[bd]));
+                    gridInt[iwd.pos.x][iwd.pos.y] = max(0.0, gridInt[iwd.pos.x][iwd.pos.y]-d_soil);
+                    gridInt[city.pos.x][city.pos.y] = max(0.0, gridInt[city.pos.x][city.pos.y]+d_soil);
+                    soil[from][to] = 0.1 * soil[from][to] + 0.9 * d_soil;
+                    soil[to][from] = soil[from][to];
+                    T[bd] = 1/vc[bd];
+                    layDrone[bd] = city;
+                    field[layDrone[bd].pos.x][layDrone[bd].pos.y] = min(255, field[layDrone[bd].pos.x][layDrone[bd].pos.y]+10);
+                }
+
+                cout << "Analise is done" << endl;
+                it++;
+                cout << endl;
+             // анализ
+            timer = 0;
+        }
+        else {
+            cnt = 0;
+            for(drop i: layDrone) {
+                drone.setPosition(i.pos.x * 20, i.pos.y * 20); window.draw(drone);
+                if(i.pos.x == finish.x and i.pos.y == finish.y)
+                    cnt++;
+            }
+        }
+
+        window.display();
+    }
+
+    return 0;
+}
